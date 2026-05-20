@@ -1,0 +1,42 @@
+# Wardex configuration
+# Copy to ~/.config/wardex/wardex.yaml and customize
+
+# Operating mode
+# - alert: log and notify, but do not remove unverified extensions (recommended for initial rollout)
+# - enforce: remove unverified extensions and notify
+mode: alert
+
+# Extensions directory to watch
+extensions_dir: ~/.vscode/extensions
+
+# Behavior when the Marketplace API is unreachable
+# - fail_closed: block the install (strict, recommended for production)
+# - fail_open: allow the install (lenient, for high-availability environments)
+api_failure_policy: fail_closed
+
+# Update monitoring
+update_monitor:
+  enabled: true
+  # Flag verified extensions updated within this many hours for review
+  recency_threshold_hours: 24
+
+# Blocklist sync
+blocklist:
+  removed_packages_url: https://raw.githubusercontent.com/microsoft/vsmarketplace/main/RemovedPackages.md
+  refresh_interval_minutes: 15
+
+# Allowlist
+allowlist:
+  publishers: []
+  extensions: []
+
+# Alerting
+alerts:
+  log_file: ~/Library/Logs/wardex.log
+  macos_notifications: true
+  slack_webhook_url: null
+  generic_webhook_url: null
+  syslog: false
+
+# Logging
+log_level: INFO
