@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Optional
@@ -138,10 +139,25 @@ class ExtensionInstallHandler(FileSystemEventHandler):
             logger.error("Could not read package.json in %s — skipping", path.name)
             return
 
-        publisher = manifest.get("publisher")
+publisher = manifest.get("publisher")
         name = manifest.get("name")
         if not publisher or not name:
             logger.error("package.json missing publisher or name: %s", path.name)
+            return
+
+        # Defensively validate the identifiers before using them in API calls.
+        # VS Code extension publisher/name fields must match ^[A-Za-z0-9_-]+$
+        # by Marketplace policy; anything else is malformed or hostile.
+        identifier_re = re.compile(r"^[A-Za-z0-9_-]+$")
+        if not identifier_re.match(publisher) or not identifier_re.match(name):
+            logger.error(
+                "Refusing to query marketplace for malformed identifier: "
+                "publisher=%r name=%r (path=%s)",
+                publisher,
+                name,
+                path.name,
+            )
+            self._handle_block(path, f"{publisher}.{name}", "malformed identifier in package.json")
             return
 
         extension_id = f"{publisher}.{name}"
