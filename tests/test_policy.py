@@ -9,7 +9,9 @@ def _info(publisher: str, name: str, verified: bool) -> ExtensionInfo:
         publisher_id=publisher,
         publisher_display_name=publisher,
         extension_name=name,
-        publisher_flags=4 if verified else 0,
+        is_domain_verified=verified,
+        verified_domain="example.com" if verified else None,
+        is_publisher_flagged_verified=False,
         latest_version="1.0.0",
         last_updated=None,
     )

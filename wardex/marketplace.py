@@ -1,13 +1,25 @@
 """Visual Studio Marketplace API client.
 
-Queries the marketplace REST endpoint to determine whether a given extension's
-publisher holds verified status (the blue checkmark).
+Queries the Marketplace REST endpoint to determine whether an extension's
+publisher is trustworthy. We distinguish two trust signals the Marketplace
+exposes, because they are NOT the same thing:
 
-Marketplace publisherFlags bitmask:
-    1 = Disabled
-    2 = Verified (legacy)
-    4 = Verified / Trusted publisher (blue checkmark)
-    8 = Certified
+    1. publisher.flags == "verified"
+       Indicates the publisher account is in good standing (account age,
+       no policy violations). This is a weak signal — many indie and
+       random publishers qualify after enough time.
+
+    2. publisher.isDomainVerified == true
+       Indicates the publisher proved ownership of a real domain (e.g.,
+       microsoft.com, github.com). This is what renders as the BLUE
+       CHECKMARK BADGE on the Marketplace website. This is the strong
+       signal users actually visually identify as "verified."
+
+Wardex uses domain verification as the primary trust signal. Publisher-
+flags "verified" is exposed as a secondary signal for advanced policy
+authoring (e.g., a security team that wants to allow account-in-good-
+standing publishers from a specific allowlist while still requiring
+domain verification by default).
 """
 
 from __future__ import annotations
@@ -22,7 +34,12 @@ logger = logging.getLogger(__name__)
 
 MARKETPLACE_URL = "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery"
 API_VERSION = "7.2-preview.1"
-VERIFIED_PUBLISHER_FLAG = 4
+
+# Legacy publisher-flags bitmask — kept for parsing only.
+PUBLISHER_FLAG_DISABLED = 1
+PUBLISHER_FLAG_VERIFIED_LEGACY = 4   # account in good standing — NOT the blue check
+PUBLISHER_FLAG_CERTIFIED = 8
+
 DEFAULT_TIMEOUT = 10
 
 
@@ -33,14 +50,25 @@ class ExtensionInfo:
     publisher_id: str
     publisher_display_name: str
     extension_name: str
-    publisher_flags: int
+
+    # Strong signal — the blue checkmark.
+    is_domain_verified: bool
+    verified_domain: Optional[str]
+
+    # Weak signal — account in good standing.
+    is_publisher_flagged_verified: bool
+
     latest_version: Optional[str]
     last_updated: Optional[str]
 
     @property
     def is_verified(self) -> bool:
-        """Whether the publisher holds the verified (blue check) badge."""
-        return bool(self.publisher_flags & VERIFIED_PUBLISHER_FLAG)
+        """Primary trust signal used by policy: blue-checkmark only.
+
+        Policy.evaluate() reads this. Domain verification is the only
+        verification that maps to what users see on the Marketplace page.
+        """
+        return self.is_domain_verified
 
 
 class MarketplaceError(Exception):
@@ -94,33 +122,36 @@ class MarketplaceClient:
         versions = ext.get("versions", [])
         latest = versions[0] if versions else {}
 
+        # Domain verification is the strong signal.
+        is_domain_verified = bool(publisher.get("isDomainVerified", False))
+        verified_domain = publisher.get("domain")
+
+        # Publisher-flags "verified" is the weak signal.
+        is_publisher_flagged_verified = self._parse_publisher_flag_verified(
+            publisher.get("flags")
+        )
+
         return ExtensionInfo(
             publisher_id=publisher.get("publisherName", ""),
             publisher_display_name=publisher.get("displayName", ""),
             extension_name=ext.get("extensionName", ""),
-            publisher_flags=publisher.get("flags", 0)
-            if isinstance(publisher.get("flags"), int)
-            else self._parse_flags(publisher.get("flags", "")),
+            is_domain_verified=is_domain_verified,
+            verified_domain=verified_domain,
+            is_publisher_flagged_verified=is_publisher_flagged_verified,
             latest_version=latest.get("version"),
             last_updated=latest.get("lastUpdated"),
         )
 
     @staticmethod
-    def _parse_flags(flags) -> int:
-        """The flags field can come back as a string like 'verified, public'.
+    def _parse_publisher_flag_verified(flags) -> bool:
+        """The flags field may be an int bitmask or a comma-separated string.
 
-        Map the relevant string tokens to the bitmask values we care about.
+        Returns True only for the legacy publisher-flags 'verified' bit. This
+        is NOT the blue checkmark — for that, use isDomainVerified.
         """
         if isinstance(flags, int):
-            return flags
-        if not isinstance(flags, str):
-            return 0
-        value = 0
-        tokens = [t.strip().lower() for t in flags.split(",")]
-        if "verified" in tokens:
-            value |= VERIFIED_PUBLISHER_FLAG
-        if "disabled" in tokens:
-            value |= 1
-        if "certified" in tokens:
-            value |= 8
-        return value
+            return bool(flags & PUBLISHER_FLAG_VERIFIED_LEGACY)
+        if isinstance(flags, str):
+            tokens = [t.strip().lower() for t in flags.split(",")]
+            return "verified" in tokens
+        return False
