@@ -42,4 +42,4 @@ ruff format .
 
 ## Security
 
-Do not file security issues as public GitHub issues. Email `security@threatcraft.co` (or open a private security advisory if that's not yet set up).
+Do not file security issues as public GitHub issues. Email `threatcraft@proton.me`.
