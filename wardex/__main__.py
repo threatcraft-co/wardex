@@ -14,12 +14,24 @@ def cli():
 
 
 @cli.command()
-def start():
+@click.option("--enforce", is_flag=True, help="Quarantine unverified extensions (default: alert only)")
+@click.option(
+    "--extensions-dir",
+    type=click.Path(),
+    default=None,
+    help="VS Code extensions directory to watch",
+)
+def start(enforce, extensions_dir):
     """Start the wardex daemon in the foreground."""
-    from wardex.daemon import run
+    from pathlib import Path
+    from wardex.daemon import DEFAULT_EXTENSIONS_DIR, run
 
-    console.print("[bold green]Starting wardex daemon...[/bold green]")
-    run()
+    ext_dir = Path(extensions_dir).expanduser() if extensions_dir else DEFAULT_EXTENSIONS_DIR
+
+    mode_label = "[bold red]ENFORCE[/bold red]" if enforce else "[bold yellow]ALERT[/bold yellow]"
+    console.print(f"[bold green]Starting wardex[/bold green] in {mode_label} mode")
+    console.print(f"Watching: {ext_dir}")
+    run(extensions_dir=ext_dir, enforce=enforce)
 
 
 @cli.command()
