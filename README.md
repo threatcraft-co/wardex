@@ -35,22 +35,37 @@ No kernel extensions, no Apple entitlements, no telemetry. Pure user-space Pytho
 ## Demo
 
 $ wardex start --enforce
+
 Starting wardex in ENFORCE mode
+
 Watching: /Users/you/.vscode/extensions
+
 2026-05-20 17:47:40 [INFO] Baseline: 71 existing extensions recorded
+
 2026-05-20 17:47:40 [INFO] Wardex started in ENFORCE mode
 
+
 **In another terminal — install an unverified extension:**
+
 $ code --install-extension vscodevim.vim
+
 Installing extension 'vscodevim.vim'...
+
 Extension 'vscodevim.vim' v1.32.4 was successfully installed.
 
+
 **Back in the wardex terminal:**
+
 17:47:56,253 [INFO]    New extension directory detected: vscodevim.vim-1.32.4
+
 17:47:56,253 [INFO]    Checking extension: vscodevim.vim
+
 17:47:56,474 [INFO]    Policy decision: block (publisher is not verified)
+
 17:47:56,474 [WARNING] Quarantined: vscodevim.vim-1.32.4 -> ~/.wardex/quarantine/...
+
 17:47:56,474 [WARNING] BLOCKED vscodevim.vim — publisher is not verified
+
 
 **221 milliseconds** from FSEvents detection to quarantine. VS Code thinks the install succeeded; the extension's code is sitting in a quarantine directory it cannot execute from.
 
